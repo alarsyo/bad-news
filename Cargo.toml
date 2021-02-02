@@ -1,0 +1,17 @@
+[package]
+name = "bad-news"
+version = "0.1.0"
+authors = ["Antoine Martin <antoine97.martin@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = "3.0.0-beta.2"
+tokio = { version = "1", features = [ "full" ] }
+tracing-subscriber = "0.2"
+url = "2.2"
+
+[dependencies.matrix-sdk]
+git = "https://github.com/matrix-org/matrix-rust-sdk"
+rev = "b66c666997cbcf32071d24ffe2484a215de8d0e4"
