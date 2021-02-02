@@ -80,6 +80,8 @@ impl EventEmitter for AutoJoinBot {
         }
 
         if let RoomState::Invited(room) = room {
+            // TODO: only join room if it's the room specified in the configuration
+
             println!("Autojoining room {}", room.room_id());
             let mut delay = 2;
 
@@ -118,6 +120,7 @@ async fn login_and_sync(
     let homeserver_url = Url::parse(&homeserver_url).expect("Couldn't parse the homeserver URL");
     let client = Client::new_with_config(homeserver_url, client_config).unwrap();
 
+    // TODO: restore session on subsequent logins
     client
         .login(username, password, None, Some("autojoin bot"))
         .await?;
