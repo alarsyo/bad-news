@@ -1,14 +1,11 @@
 use std::{
     fs::File,
     io::{self, BufReader, BufWriter},
+    path::PathBuf,
+    time::Duration,
 };
-use std::{path::PathBuf, time::Duration};
 
 use clap::Clap;
-
-use tokio::time::sleep;
-use url::Url;
-
 use matrix_sdk::{
     self, async_trait,
     events::{
@@ -20,10 +17,10 @@ use matrix_sdk::{
     },
     Client, ClientConfig, EventEmitter, RoomState, Session, SyncSettings,
 };
-
 use serde::Deserialize;
-
 use thiserror::Error;
+use tokio::time::sleep;
+use url::Url;
 
 struct AutoJoinBot {
     client: Client,
