@@ -105,7 +105,7 @@ async fn load_or_init_session(
     if session_file.is_file() {
         let reader = BufReader::new(File::open(session_file).unwrap());
 
-        let session: Session = serde_json::from_reader(reader).unwrap();
+        let session: Session = serde_yaml::from_reader(reader).unwrap();
 
         client.restore_login(session.clone()).await.unwrap();
 
@@ -125,7 +125,7 @@ async fn load_or_init_session(
         };
 
         let writer = BufWriter::new(File::create(session_file).unwrap());
-        serde_json::to_writer(writer, &session).unwrap();
+        serde_yaml::to_writer(writer, &session).unwrap();
     }
 }
 
@@ -139,7 +139,7 @@ async fn login_and_sync(
 
     let client = Client::new_with_config(homeserver_url, client_config).unwrap();
 
-    load_or_init_session(&client, state_dir.join("session.json"), username, password).await;
+    load_or_init_session(&client, state_dir.join("session.yaml"), username, password).await;
 
     client
         .add_event_emitter(Box::new(AutoJoinBot::new(client.clone())))
@@ -175,7 +175,7 @@ async fn main() -> Result<(), matrix_sdk::Error> {
     let config_file = opts.config;
 
     let config: Config =
-        serde_json::from_reader(BufReader::new(File::open(config_file).unwrap())).unwrap();
+        serde_yaml::from_reader(BufReader::new(File::open(config_file).unwrap())).unwrap();
 
     login_and_sync(
         config.homeserver,
