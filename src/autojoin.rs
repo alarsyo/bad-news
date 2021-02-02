@@ -3,17 +3,19 @@ use std::time::Duration;
 use matrix_sdk::{
     self, async_trait,
     events::{room::member::MemberEventContent, StrippedStateEvent},
+    identifiers::RoomId,
     Client, EventEmitter, RoomState,
 };
 use tokio::time::sleep;
 
 pub struct AutoJoinHandler {
     client: Client,
+    room_id: RoomId,
 }
 
 impl AutoJoinHandler {
-    pub fn new(client: Client) -> Self {
-        Self { client }
+    pub fn new(client: Client, room_id: RoomId) -> Self {
+        Self { client, room_id }
     }
 }
 
@@ -30,7 +32,23 @@ impl EventEmitter for AutoJoinHandler {
         }
 
         if let RoomState::Invited(room) = room {
-            // TODO: only join room if it's the room specified in the configuration
+            let room_id = room.room_id();
+            let room_name = room.display_name().await;
+            println!(
+                "Received invitation for room `{}`: `{}`",
+                room_id, room_name
+            );
+
+            if room_id != &self.room_id {
+                println!(
+                    "Bot isn't authorized to join room `{}`, declining invitation",
+                    room_id
+                );
+                // leaving a room is equivalent to rejecting the invitation, as per
+                // https://matrix.org/docs/spec/client_server/r0.6.0#post-matrix-client-r0-rooms-roomid-leave
+                self.client.leave_room(room_id).await.unwrap();
+                return;
+            }
 
             println!("Autojoining room {}", room.room_id());
             let mut delay = 2;

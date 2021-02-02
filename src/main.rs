@@ -5,6 +5,7 @@ use std::{
 };
 
 use clap::Clap;
+use matrix_sdk::identifiers::RoomId;
 use serde::Deserialize;
 use thiserror::Error;
 use url::Url;
@@ -41,6 +42,9 @@ pub struct Config {
     password: String,
     /// Path to a directory where the bot will store Matrix state and current session information.
     state_dir: PathBuf,
+    /// ID of the Matrix room where the bot should post messages. The bot will only accept
+    /// invitations to this room.
+    room_id: RoomId,
 }
 
 #[tokio::main]

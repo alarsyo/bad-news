@@ -32,7 +32,10 @@ impl BadNewsBot {
         load_or_init_session(&self).await?;
 
         self.client
-            .add_event_emitter(Box::new(AutoJoinHandler::new(self.client.clone())))
+            .add_event_emitter(Box::new(AutoJoinHandler::new(
+                self.client.clone(),
+                self.config.room_id.clone(),
+            )))
             .await;
 
         Ok(())
