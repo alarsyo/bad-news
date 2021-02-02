@@ -21,29 +21,7 @@ use matrix_sdk::{
     Client, ClientConfig, EventEmitter, RoomState, Session, SyncSettings,
 };
 
-#[derive(Clap)]
-#[clap(version = "0.1", author = "Antoine Martin")]
-struct Opts {
-    /// Username to use for bot account
-    #[clap(long)]
-    username: String,
-
-    /// Password for bot account
-    #[clap(long)]
-    password: String,
-
-    /// Homeserver to connect to
-    #[clap(long)]
-    homeserver: String,
-
-    /// Folder to store the client state into
-    #[clap(long, parse(from_os_str))]
-    store_path: PathBuf,
-
-    /// File where session information will be saved
-    #[clap(long, parse(from_os_str))]
-    session: PathBuf,
-}
+use serde::Deserialize;
 
 struct AutoJoinBot {
     client: Client,
@@ -152,18 +130,16 @@ async fn load_or_init_session(
 }
 
 async fn login_and_sync(
-    homeserver_url: String,
+    homeserver_url: Url,
     username: &str,
     password: &str,
-    store_path: PathBuf,
-    session_file: PathBuf,
+    state_dir: PathBuf,
 ) -> Result<(), matrix_sdk::Error> {
-    let client_config = ClientConfig::new().store_path(store_path);
+    let client_config = ClientConfig::new().store_path(state_dir.join("store"));
 
-    let homeserver_url = Url::parse(&homeserver_url).expect("Couldn't parse the homeserver URL");
     let client = Client::new_with_config(homeserver_url, client_config).unwrap();
 
-    load_or_init_session(&client, session_file, username, password).await;
+    load_or_init_session(&client, state_dir.join("session.json"), username, password).await;
 
     client
         .add_event_emitter(Box::new(AutoJoinBot::new(client.clone())))
@@ -174,17 +150,38 @@ async fn login_and_sync(
     Ok(())
 }
 
+
+#[derive(Clap)]
+#[clap(version = "0.1", author = "Antoine Martin")]
+struct Opts {
+    /// File where session information will be saved
+    #[clap(short, long, parse(from_os_str))]
+    config: PathBuf,
+}
+
+#[derive(Deserialize)]
+struct Config {
+    homeserver: Url,
+    username: String,
+    password: String,
+    state_dir: PathBuf,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), matrix_sdk::Error> {
     tracing_subscriber::fmt::init();
+
     let opts = Opts::parse();
+    let config_file = opts.config;
+
+    let config: Config =
+        serde_json::from_reader(BufReader::new(File::open(config_file).unwrap())).unwrap();
 
     login_and_sync(
-        opts.homeserver,
-        &opts.username,
-        &opts.password,
-        opts.store_path,
-        opts.session,
+        config.homeserver,
+        &config.username,
+        &config.password,
+        config.state_dir,
     )
     .await
 }
