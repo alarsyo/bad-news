@@ -1,3 +1,7 @@
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+};
 use std::{path::PathBuf, time::Duration};
 
 use clap::Clap;
@@ -14,7 +18,7 @@ use matrix_sdk::{
         },
         StrippedStateEvent, SyncMessageEvent,
     },
-    Client, ClientConfig, EventEmitter, RoomState, SyncSettings,
+    Client, ClientConfig, EventEmitter, RoomState, Session, SyncSettings,
 };
 
 #[derive(Clap)]
@@ -35,6 +39,10 @@ struct Opts {
     /// Folder to store the client state into
     #[clap(long, parse(from_os_str))]
     store_path: PathBuf,
+
+    /// File where session information will be saved
+    #[clap(long, parse(from_os_str))]
+    session: PathBuf,
 }
 
 struct AutoJoinBot {
@@ -109,23 +117,53 @@ impl EventEmitter for AutoJoinBot {
     }
 }
 
+// TODO: use nice error handling
+async fn load_or_init_session(
+    client: &Client,
+    session_file: PathBuf,
+    username: &str,
+    password: &str,
+) {
+    if session_file.is_file() {
+        let reader = BufReader::new(File::open(session_file).unwrap());
+
+        let session: Session = serde_json::from_reader(reader).unwrap();
+
+        client.restore_login(session.clone()).await.unwrap();
+
+        println!("Reused session: {}, {}", session.user_id, session.device_id);
+    } else {
+        let response = client
+            .login(username, password, None, Some("autojoin bot"))
+            .await
+            .unwrap();
+
+        println!("logged in as {}", username);
+
+        let session = Session {
+            access_token: response.access_token,
+            user_id: response.user_id,
+            device_id: response.device_id,
+        };
+
+        let writer = BufWriter::new(File::create(session_file).unwrap());
+        serde_json::to_writer(writer, &session).unwrap();
+    }
+}
+
 async fn login_and_sync(
     homeserver_url: String,
     username: &str,
     password: &str,
     store_path: PathBuf,
+    session_file: PathBuf,
 ) -> Result<(), matrix_sdk::Error> {
     let client_config = ClientConfig::new().store_path(store_path);
 
     let homeserver_url = Url::parse(&homeserver_url).expect("Couldn't parse the homeserver URL");
     let client = Client::new_with_config(homeserver_url, client_config).unwrap();
 
-    // TODO: restore session on subsequent logins
-    client
-        .login(username, password, None, Some("autojoin bot"))
-        .await?;
-
-    println!("logged in as {}", username);
+    load_or_init_session(&client, session_file, username, password).await;
 
     client
         .add_event_emitter(Box::new(AutoJoinBot::new(client.clone())))
@@ -146,6 +184,7 @@ async fn main() -> Result<(), matrix_sdk::Error> {
         &opts.username,
         &opts.password,
         opts.store_path,
+        opts.session,
     )
     .await
 }
