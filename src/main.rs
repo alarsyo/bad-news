@@ -57,6 +57,7 @@ impl EventEmitter for AutoJoinBot {
             }
         }
     }
+
     async fn on_stripped_state_member(
         &self,
         room: RoomState,
@@ -169,11 +170,16 @@ struct Opts {
     config: PathBuf,
 }
 
+/// Holds the configuration for the bot.
 #[derive(Deserialize)]
 struct Config {
+    /// The URL for the homeserver we should connect to
     homeserver: Url,
+    /// The bot's account username
     username: String,
+    /// The bot's account password
     password: String,
+    /// Path to a directory where the bot will store Matrix state and current session information.
     state_dir: PathBuf,
 }
 
