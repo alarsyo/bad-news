@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter},
+    io::{self, BufReader, BufWriter},
 };
 use std::{path::PathBuf, time::Duration};
 
@@ -22,6 +22,8 @@ use matrix_sdk::{
 };
 
 use serde::Deserialize;
+
+use thiserror::Error;
 
 struct AutoJoinBot {
     client: Client,
@@ -101,20 +103,19 @@ async fn load_or_init_session(
     session_file: PathBuf,
     username: &str,
     password: &str,
-) {
+) -> anyhow::Result<()> {
     if session_file.is_file() {
-        let reader = BufReader::new(File::open(session_file).unwrap());
+        let reader = BufReader::new(File::open(session_file)?);
 
-        let session: Session = serde_yaml::from_reader(reader).unwrap();
+        let session: Session = serde_yaml::from_reader(reader)?;
 
-        client.restore_login(session.clone()).await.unwrap();
+        client.restore_login(session.clone()).await?;
 
         println!("Reused session: {}, {}", session.user_id, session.device_id);
     } else {
         let response = client
             .login(username, password, None, Some("autojoin bot"))
-            .await
-            .unwrap();
+            .await?;
 
         println!("logged in as {}", username);
 
@@ -124,9 +125,11 @@ async fn load_or_init_session(
             device_id: response.device_id,
         };
 
-        let writer = BufWriter::new(File::create(session_file).unwrap());
-        serde_yaml::to_writer(writer, &session).unwrap();
+        let writer = BufWriter::new(File::create(session_file)?);
+        serde_yaml::to_writer(writer, &session)?;
     }
+
+    Ok(())
 }
 
 async fn login_and_sync(
@@ -134,12 +137,12 @@ async fn login_and_sync(
     username: &str,
     password: &str,
     state_dir: PathBuf,
-) -> Result<(), matrix_sdk::Error> {
+) -> anyhow::Result<()> {
     let client_config = ClientConfig::new().store_path(state_dir.join("store"));
 
-    let client = Client::new_with_config(homeserver_url, client_config).unwrap();
+    let client = Client::new_with_config(homeserver_url, client_config)?;
 
-    load_or_init_session(&client, state_dir.join("session.yaml"), username, password).await;
+    load_or_init_session(&client, state_dir.join("session.yaml"), username, password).await?;
 
     client
         .add_event_emitter(Box::new(AutoJoinBot::new(client.clone())))
@@ -150,6 +153,13 @@ async fn login_and_sync(
     Ok(())
 }
 
+#[derive(Error, Debug)]
+enum BadNewsError {
+    #[error("problem accessing configuration file")]
+    ConfigFile(#[from] io::Error),
+    #[error("Matrix communication error")]
+    Matrix(#[from] matrix_sdk::Error),
+}
 
 #[derive(Clap)]
 #[clap(version = "0.1", author = "Antoine Martin")]
@@ -168,14 +178,13 @@ struct Config {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), matrix_sdk::Error> {
+async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let opts = Opts::parse();
     let config_file = opts.config;
 
-    let config: Config =
-        serde_yaml::from_reader(BufReader::new(File::open(config_file).unwrap())).unwrap();
+    let config: Config = serde_yaml::from_reader(BufReader::new(File::open(config_file)?))?;
 
     login_and_sync(
         config.homeserver,
