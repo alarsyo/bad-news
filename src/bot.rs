@@ -3,11 +3,19 @@ use std::{
     io::{BufReader, BufWriter},
 };
 
-use matrix_sdk::{Client, ClientConfig, Session, SyncSettings};
+use matrix_sdk::{
+    events::{
+        room::message::{MessageEventContent, TextMessageEventContent},
+        AnyMessageEventContent,
+    },
+    Client, ClientConfig, Session, SyncSettings,
+};
+use systemd::{journal, JournalRecord};
 
 use crate::autojoin::AutoJoinHandler;
 use crate::Config;
 
+#[derive(Clone)]
 pub struct BadNewsBot {
     client: Client,
     config: Config,
@@ -46,7 +54,75 @@ impl BadNewsBot {
     /// [`BadNewsBot::init`] **must** be called before this function, otherwise the [`Client`] isn't
     /// logged in.
     pub async fn run(&self) {
+        let clone = self.clone();
+
+        tokio::task::spawn_blocking(move || clone.watch_journald());
+
         self.client.sync(SyncSettings::default()).await
+    }
+
+    fn watch_journald(&self) {
+        let mut reader = journal::OpenOptions::default()
+            .system(true)
+            .open()
+            .expect("Could not open journal");
+
+        // Seek to end of current log to prevent old messages from being printed
+        reader
+            .seek_tail()
+            .expect("Could not seek to end of journal");
+
+        // HACK: for some reason calling `seek_tail` above still leaves old entries when calling
+        // next, so skip all those before we start the real logging
+        loop {
+            if reader.next().unwrap() == 0 {
+                break;
+            }
+        }
+
+        // NOTE: Ugly double loop, but low level `wait` has to be used if we don't want to miss any
+        // new entry. See https://github.com/jmesmon/rust-systemd/issues/66
+        loop {
+            loop {
+                let record = reader.next_entry().unwrap();
+                match record {
+                    Some(record) => self.handle_record(record),
+                    None => break,
+                }
+            }
+
+            reader.wait(None).unwrap();
+        }
+    }
+
+    fn handle_record(&self, record: JournalRecord) {
+        const KEY_UNIT: &str = "_SYSTEMD_UNIT";
+        const KEY_MESSAGE: &str = "MESSAGE";
+
+        if let Some(unit) = record.get(KEY_UNIT) {
+            if !self.config.units.contains(unit) {
+                return;
+            }
+
+            let message = record.get(KEY_MESSAGE);
+            let message = format!(
+                "[{}] {}",
+                unit.strip_suffix(".service").unwrap_or(unit),
+                message.map(|m| m.as_ref()).unwrap_or("<EMPTY MESSAGE>")
+            );
+            let content = AnyMessageEventContent::RoomMessage(MessageEventContent::Text(
+                TextMessageEventContent::plain(message),
+            ));
+            let room_id = self.config.room_id.clone();
+            let client_clone = self.client.clone();
+
+            tokio::spawn(async move {
+                client_clone
+                    .room_send(&room_id, content, None)
+                    .await
+                    .unwrap();
+            });
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs::File,
     io::{self, BufReader},
     path::PathBuf,
@@ -32,7 +33,7 @@ struct Opts {
 }
 
 /// Holds the configuration for the bot.
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Config {
     /// The URL for the homeserver we should connect to
     homeserver: Url,
@@ -45,6 +46,8 @@ pub struct Config {
     /// ID of the Matrix room where the bot should post messages. The bot will only accept
     /// invitations to this room.
     room_id: RoomId,
+    /// Units to watch for logs
+    units: HashSet<String>,
 }
 
 #[tokio::main]
