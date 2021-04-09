@@ -29,3 +29,15 @@ Then run the bot:
 #+begin_src sh
 cargo run -- --config config.yaml
 #+end_src
+
+* Contributing
+
+Please send patches to [[~alarsyo/patches@lists.sr.ht]] with the prefix =PATCH
+bad-news=.
+
+You can use the following commands to set up =git= appropriately;
+
+#+begin_src shell
+git config sendemail.to '~alarsyo/patches@lists.sr.ht'
+git config format.subjectPrefix 'PATCH bad-news'
+#+end_src
