@@ -105,9 +105,13 @@ impl BadNewsBot {
                 None => return,
             };
 
-            let message = record.get(KEY_MESSAGE);
+            let message = match record.get(KEY_MESSAGE) {
+                Some(msg) => msg,
+                None => return,
+            };
+
             if let Some(filter) = &unit_config.filter {
-                if message.is_none() || !filter.is_match(message.unwrap()) {
+                if !filter.is_match(message) {
                     return;
                 }
             }
@@ -115,7 +119,7 @@ impl BadNewsBot {
             let message = format!(
                 "[{}] {}",
                 unit.strip_suffix(".service").unwrap_or(unit),
-                message.map(|m| m.as_ref()).unwrap_or("<EMPTY MESSAGE>")
+                message,
             );
             let content = AnyMessageEventContent::RoomMessage(MessageEventContent::Text(
                 TextMessageEventContent::plain(message),
