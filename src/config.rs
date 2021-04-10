@@ -1,4 +1,5 @@
 use matrix_sdk::identifiers::RoomId;
+use regex::Regex;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::fmt;
@@ -27,14 +28,23 @@ pub struct Config {
 }
 
 /// Holds a single unit's configuration.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(from = "SerializedUnit")]
 pub struct Unit {
     /// Can be serialized from a string only instead of a map.
     pub name: String,
     /// Regex to filter each line read from the unit's logs.
-    pub filter: Option<String>, // FIXME: regex
+    #[serde(with = "serde_regex")]
+    pub filter: Option<Regex>,
 }
+
+impl PartialEq for Unit {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for Unit {}
 
 #[derive(Debug, Deserialize)]
 #[serde(transparent)]
