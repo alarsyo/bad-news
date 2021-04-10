@@ -20,7 +20,7 @@
 
           src = ./.;
 
-          cargoSha256 = "sha256-nWEWOY1F0TsVW5DHm2p8eOABF97Wku7Grw0Vsd79syU=";
+          cargoSha256 = "sha256-thGlVgWeAsBnX8IL4y4pyyUnyGfERugYHU61Te0KEUY=";
 
           meta = with pkgs.lib; {
             description = "A Matrix bot, bringer of bad news";
