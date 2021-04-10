@@ -100,7 +100,7 @@ impl BadNewsBot {
         const KEY_MESSAGE: &str = "MESSAGE";
 
         if let Some(unit) = record.get(KEY_UNIT) {
-            if !self.config.units.contains(unit) {
+            if !self.config.units.iter().map(|u| &u.name).any(|name| name == unit) {
                 return;
             }
 
