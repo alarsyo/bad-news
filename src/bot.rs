@@ -100,11 +100,18 @@ impl BadNewsBot {
         const KEY_MESSAGE: &str = "MESSAGE";
 
         if let Some(unit) = record.get(KEY_UNIT) {
-            if !self.config.units.iter().map(|u| &u.name).any(|name| name == unit) {
-                return;
-            }
+            let unit_config = match self.config.units.iter().find(|u| &u.name == unit) {
+                Some(config) => config,
+                None => return,
+            };
 
             let message = record.get(KEY_MESSAGE);
+            if let Some(filter) = &unit_config.filter {
+                if message.is_none() || !filter.is_match(message.unwrap()) {
+                    return;
+                }
+            }
+
             let message = format!(
                 "[{}] {}",
                 unit.strip_suffix(".service").unwrap_or(unit),

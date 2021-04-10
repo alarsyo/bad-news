@@ -24,12 +24,12 @@ pub struct Config {
     /// invitations to this room.
     pub room_id: RoomId,
     /// Units to watch for logs
+    #[serde(deserialize_with = "list_of_units")]
     pub units: Vec<Unit>,
 }
 
 /// Holds a single unit's configuration.
 #[derive(Clone, Debug, Deserialize)]
-#[serde(from = "SerializedUnit")]
 pub struct Unit {
     /// Can be serialized from a string only instead of a map.
     pub name: String,
@@ -65,6 +65,14 @@ impl FromStr for Unit {
             filter: None,
         })
     }
+}
+
+fn list_of_units<'de, D>(deserializer: D) -> Result<Vec<Unit>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let units: Vec<SerializedUnit> = Deserialize::deserialize(deserializer)?;
+    Ok(units.into_iter().map(From::from).collect())
 }
 
 fn unit_name_or_struct<'de, T, D>(deserializer: D) -> Result<T, D::Error>
