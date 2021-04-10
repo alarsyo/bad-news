@@ -23,4 +23,4 @@ void = "1"
 
 [dependencies.matrix-sdk]
 git = "https://github.com/matrix-org/matrix-rust-sdk"
-rev = "b66c666997cbcf32071d24ffe2484a215de8d0e4"
+rev = "b5de20349945afcde13a78f023b906f421bb9764"

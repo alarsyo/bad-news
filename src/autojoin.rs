@@ -4,7 +4,8 @@ use matrix_sdk::{
     self, async_trait,
     events::{room::member::MemberEventContent, StrippedStateEvent},
     identifiers::RoomId,
-    Client, EventEmitter, RoomState,
+    room::Room,
+    Client, EventHandler,
 };
 use tokio::time::sleep;
 
@@ -20,10 +21,10 @@ impl AutoJoinHandler {
 }
 
 #[async_trait]
-impl EventEmitter for AutoJoinHandler {
+impl EventHandler for AutoJoinHandler {
     async fn on_stripped_state_member(
         &self,
-        room: RoomState,
+        room: Room,
         room_member: &StrippedStateEvent<MemberEventContent>,
         _: Option<MemberEventContent>,
     ) {
@@ -31,9 +32,12 @@ impl EventEmitter for AutoJoinHandler {
             return;
         }
 
-        if let RoomState::Invited(room) = room {
+        if let Room::Invited(room) = room {
             let room_id = room.room_id();
-            let room_name = room.display_name().await;
+            let room_name = room
+                .display_name()
+                .await
+                .expect("couldn't get joined room name!");
             println!(
                 "Received invitation for room `{}`: `{}`",
                 room_id, room_name
@@ -44,16 +48,14 @@ impl EventEmitter for AutoJoinHandler {
                     "Bot isn't authorized to join room `{}`, declining invitation",
                     room_id
                 );
-                // leaving a room is equivalent to rejecting the invitation, as per
-                // https://matrix.org/docs/spec/client_server/r0.6.0#post-matrix-client-r0-rooms-roomid-leave
-                self.client.leave_room(room_id).await.unwrap();
+                room.reject_invitation().await.unwrap();
                 return;
             }
 
             println!("Autojoining room {}", room.room_id());
             let mut delay = 2;
 
-            while let Err(err) = self.client.join_room_by_id(room.room_id()).await {
+            while let Err(err) = room.accept_invitation().await {
                 // retry autojoin due to synapse sending invites, before the
                 // invited user can join for more information see
                 // https://github.com/matrix-org/synapse/issues/4345

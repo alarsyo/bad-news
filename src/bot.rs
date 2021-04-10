@@ -4,10 +4,7 @@ use std::{
 };
 
 use matrix_sdk::{
-    events::{
-        room::message::{MessageEventContent, TextMessageEventContent},
-        AnyMessageEventContent,
-    },
+    events::{room::message::MessageEventContent, AnyMessageEventContent},
     Client, ClientConfig, Session, SyncSettings,
 };
 use systemd::{journal, JournalRecord};
@@ -40,7 +37,7 @@ impl BadNewsBot {
         load_or_init_session(&self).await?;
 
         self.client
-            .add_event_emitter(Box::new(AutoJoinHandler::new(
+            .set_event_handler(Box::new(AutoJoinHandler::new(
                 self.client.clone(),
                 self.config.room_id.clone(),
             )))
@@ -121,9 +118,8 @@ impl BadNewsBot {
                 unit.strip_suffix(".service").unwrap_or(unit),
                 message,
             );
-            let content = AnyMessageEventContent::RoomMessage(MessageEventContent::Text(
-                TextMessageEventContent::plain(message),
-            ));
+            let content =
+                AnyMessageEventContent::RoomMessage(MessageEventContent::text_plain(message));
             let room_id = self.config.room_id.clone();
             let client_clone = self.client.clone();
 
